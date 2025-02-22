@@ -1,6 +1,9 @@
 import numpy as np
 import torch
 from torch import Tensor
+import matplotlib.pyplot as plt
+from matplotlib import animation
+from copy import deepcopy
 
 
 class GridWorld:
@@ -11,7 +14,7 @@ class GridWorld:
         self.north = 1
         self.west = 2
         self.south = 3
-        self.obstacle = 1
+        self.obstacle = -1
 
 
     def move(self, direction: int) -> bool:
@@ -45,3 +48,14 @@ class GridWorld:
 
         self.agent_pos = new_position
         return True
+
+
+def visualise_gridworld(world: GridWorld):
+    fig, ax = plt.subplots()
+    agent, = ax.plot([], [], 'ro', markersize=20)
+    plt.pcolormesh(world.world_data)
+    def update(frame):
+        agent.set_data([world.agent_pos[0]+0.5], [world.agent_pos[1]+0.5])
+        return agent
+    ani = animation.FuncAnimation(fig, update, frames=range(2), interval=10)
+    plt.show()

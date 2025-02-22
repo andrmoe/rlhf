@@ -2,9 +2,9 @@ from gridworld import GridWorld
 from torch import Tensor
 
 def test_gridworld():
-    data = Tensor([[0, 1, 1],
-                   [0, 0, 1],
-                   [1, 0, 0]])
+    data = Tensor([[ 0, -1, -1],
+                   [ 0,  0, -1],
+                   [-1,  0,  0]])
     world = GridWorld(data, (0, 0))
     assert world.move(world.east) == False
     assert world.agent_pos == (0, 0)
