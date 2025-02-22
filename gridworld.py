@@ -53,9 +53,10 @@ class GridWorld:
 def visualise_gridworld(world: GridWorld):
     fig, ax = plt.subplots()
     agent, = ax.plot([], [], 'ro', markersize=20)
+    plt.gca().invert_yaxis()
     plt.pcolormesh(world.world_data)
     def update(frame):
-        agent.set_data([world.agent_pos[0]+0.5], [world.agent_pos[1]+0.5])
+        agent.set_data([world.agent_pos[1]+0.5], [world.agent_pos[0]+0.5])
         return agent
     ani = animation.FuncAnimation(fig, update, frames=range(2), interval=10)
     plt.show()
