@@ -28,7 +28,6 @@ class QLearningAgent(Agent[S, A]):
         non_optimal_probability = self.exploration_rate/(len(self.possible_actions)-max_value_count)
         action_distribution = torch.full_like(self.q_table[state], non_optimal_probability)
         action_distribution += max_one_hot * (1 - self.exploration_rate)/max_value_count
-        print(action_distribution)
         return zip(action_distribution, self.possible_actions)
 
     def observe(self, new_state: S, reward: float):
