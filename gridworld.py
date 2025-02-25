@@ -1,6 +1,4 @@
 from torch import Tensor
-import matplotlib.pyplot as plt
-from matplotlib import animation
 from agent import Environment
 
 
@@ -51,15 +49,3 @@ class GridWorld(Environment[tuple[int, int], int]):
         self.state = state
         self.move(action)
         return self.state
-
-
-def visualise_gridworld(world: GridWorld):
-    fig, ax = plt.subplots()
-    agent, = ax.plot([], [], 'ro', markersize=20)
-    plt.gca().invert_yaxis()
-    plt.pcolormesh(world.world_data)
-    def update(frame):
-        agent.set_data([world.state[1] + 0.5], [world.state[0] + 0.5])
-        return agent
-    ani = animation.FuncAnimation(fig, update, frames=range(2), interval=10)
-    plt.show()
