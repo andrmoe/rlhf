@@ -5,7 +5,7 @@ import torch
 import random
 from maze import small_maze
 from gridworld import GridWorld
-from agent import AgentEnvironment, Agent
+from agent import AgentEnvironment, Agent, Environment
 from qlearning import QLearningAgent
 import threading
 import matplotlib.pyplot as plt
@@ -62,14 +62,18 @@ def visualise_gridworld(world: GridWorld, agent: QLearningAgent[tuple[int, int],
 
 def agent_loop(agent_environment: AgentEnvironment[tuple[int, int], int]):
     while True:
-        if agent_environment.environment.state[0] == 0:
-            agent_environment.environment.state = random.choice([(5, 5), (6, 1), (8, 8)])
+        if agent_environment.environment.is_terminal():
+            while True:
+                agent_environment.environment.state = random.randint(0, 9), random.randint(0, 9)
+                if small_maze.world_data[agent_environment.environment.state] != small_maze.obstacle:
+                    break
+
         agent_environment.step()
         time.sleep(0.01)
 
 
-def reward_func(state: tuple[int, int]) -> float:
-    if state[0] == 0:
+def reward_func(environment: Environment) -> float:
+    if environment.is_terminal():
         return 10
     else:
         return -1

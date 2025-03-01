@@ -4,13 +4,14 @@ from agent import Environment
 
 class GridWorld(Environment[tuple[int, int], int]):
     def __init__(self, world_data: Tensor, agent_pos: tuple[int, int]):
-        super().__init__(agent_pos, self.transition_func)
+        super().__init__(agent_pos)
         self.world_data = world_data
         self.east = 0
         self.north = 1
         self.west = 2
         self.south = 3
         self.obstacle = -1
+        self.terminal_square = 1
 
 
     def move(self, direction: int) -> bool:
@@ -45,7 +46,10 @@ class GridWorld(Environment[tuple[int, int], int]):
         self.state = new_position
         return True
 
-    def transition_func(self, state: tuple[int, int], action: int) -> tuple[int, int]:
-        self.state = state
+    def transition(self, action: int) -> tuple[int, int]:
         self.move(action)
         return self.state
+
+    def is_terminal(self) -> bool:
+        return bool(self.world_data[self.state] == self.terminal_square)
+
