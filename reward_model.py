@@ -30,7 +30,7 @@ class RewardTable(nn.Module):
         self.table = nn.Parameter(torch.randn(shape))
 
     def forward(self, indices: Tensor) -> Tensor:
-        return self.table[indices]
+        return self.table[indices[0], indices[1]]
 
 
 class GridWorldRewardModel(RewardModel[tuple[int, int]]):
