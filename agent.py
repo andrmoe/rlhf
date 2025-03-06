@@ -44,7 +44,7 @@ class Environment(Generic[S, A]):
 
 class AgentEnvironment(Generic[S, A]):
     def __init__(self, agent: Agent[S, A], environment: Environment[S, A],
-                 reward_func: Callable[[Environment[S, A]], float] = lambda s: 0):
+                 reward_func: Callable[[S], float] = lambda s: 0):
         if agent.state != environment.state:
             warnings.warn(f"The state for the agent and environment are different. "
                           f"{agent.state=}, {environment.state=}, "
@@ -57,7 +57,7 @@ class AgentEnvironment(Generic[S, A]):
     def step(self) -> S:
         action = self.agent.act()
         new_state = self.environment.transition(action)
-        self.agent.observe(new_state, self.reward_func(self.environment))
+        self.agent.observe(new_state, self.reward_func(new_state))
         if self.environment.is_terminal():
             return None
         return new_state

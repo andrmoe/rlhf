@@ -72,8 +72,8 @@ def agent_loop(agent_environment: AgentEnvironment[tuple[int, int], int]):
         time.sleep(0.01)
 
 
-def reward_func(environment: Environment) -> float:
-    if environment.is_terminal():
+def reward_func(world: GridWorld, state: tuple[int, int]) -> float:
+    if world.world_data[state] == world.terminal_square:
         return 10
     else:
         return -1
@@ -81,7 +81,7 @@ def reward_func(environment: Environment) -> float:
 
 if __name__ == '__main__':
     agent = QLearningAgent(small_maze.state, range(4))
-    agent_environment = AgentEnvironment(agent, small_maze, reward_func)
+    agent_environment = AgentEnvironment(agent, small_maze, lambda s: reward_func(small_maze, s))
     t = threading.Thread(target=agent_loop, args=[agent_environment], daemon=True)
     t.start()
     visualise_gridworld(small_maze, agent)
