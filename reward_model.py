@@ -12,17 +12,24 @@ class RewardModel(Generic[S], nn.Module):
         self.ensemble = nn.ModuleList(ensemble)
         self.encode = encode
 
+    def encode_trajectory(self, trajectory: [S]) -> Tensor:
+        return torch.stack([self.encode(state) for state in trajectory])
+
     def reward(self, state: S) -> Tensor:
         encoded = self.encode(state)
         rewards = torch.stack([reward_model(encoded) for reward_model in self.ensemble])
         return torch.stack((torch.mean(rewards), torch.var(rewards)))
 
-    def loss(self, traj0: [S], traj1: [S], preference: Tensor) -> float:
-        exp_sum0 = np.exp(sum([self.reward(state) for state in traj0]))
-        exp_sum1 = np.exp(sum([self.reward(state) for state in traj1]))
-        denominator = exp_sum0 + exp_sum1
-        return - preference[0]*np.log(exp_sum0/denominator) - preference[1]*np.log(exp_sum1/denominator)
+    def exp_sum(self, trajectory: Tensor) -> Tensor:
+        rewards = tensor([[predictor(state) for state in trajectory] for predictor in self.ensemble])
+        return torch.exp(torch.sum(rewards, dim=1))
 
+
+    def loss(self, traj0: Tensor, traj1: Tensor, preference: Tensor) -> Tensor:
+        exp_sum0 = self.exp_sum(traj0)
+        exp_sum1 = self.exp_sum(traj1)
+        denominator = exp_sum0 + exp_sum1
+        return - torch.mean(preference[0]*torch.log(exp_sum0/denominator) + preference[1]*np.log(exp_sum1/denominator))
 
 class RewardTable(nn.Module):
     def __init__(self, shape: tuple[int, int]):

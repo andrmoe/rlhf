@@ -1,6 +1,9 @@
+import torch
+
 from gridworld import GridWorld
 from torch import Tensor
 from agent import Agent, Environment, AgentEnvironment
+from reward_model import GridWorldRewardModel
 
 def test_gridworld():
     data = Tensor([[ 0, -1, -1],
@@ -37,3 +40,12 @@ def test_generic_agent_environment():
     assert agent.state == environment.state == False
     next_state = agent_environment.step()
     assert next_state == agent.state == environment.state == True
+
+
+def test_reward_model_loss():
+    reward_model = GridWorldRewardModel((5,5), 10)
+    trajectory = [(i, i) for i in range(5)]
+    encoded_traj = reward_model.encode_trajectory(trajectory)
+
+    assert reward_model.exp_sum(encoded_traj).shape == (10,)
+    assert reward_model.loss(trajectory, trajectory, torch.tensor([0.5, 0.5])) == -torch.log(torch.tensor(0.5))
