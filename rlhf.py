@@ -13,3 +13,4 @@ def rlhf(agent: Agent[S, A], environment: Environment[S, A], reward_model: Rewar
     agent_environment = AgentEnvironment(agent, environment, lambda s: float(reward_model.reward(s)[0]))
 
     preference_database = []
+    rl_process = multiprocessing.Process()

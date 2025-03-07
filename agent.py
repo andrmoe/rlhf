@@ -1,3 +1,4 @@
+import time
 from typing import Callable, TypeVar, Iterable, Generic
 import random
 import warnings
@@ -44,7 +45,7 @@ class Environment(Generic[S, A]):
 
 class AgentEnvironment(Generic[S, A]):
     def __init__(self, agent: Agent[S, A], environment: Environment[S, A],
-                 reward_func: Callable[[S], float] = lambda s: 0):
+                 reward_func: Callable[[S], float] = lambda s: 0, step_limit: int = 200, sleep_time=None):
         if agent.state != environment.state:
             warnings.warn(f"The state for the agent and environment are different. "
                           f"{agent.state=}, {environment.state=}, "
@@ -53,6 +54,8 @@ class AgentEnvironment(Generic[S, A]):
         self.agent = agent
         self.environment = environment
         self.reward_func= reward_func
+        self.step_limit = step_limit
+        self.sleep_time = sleep_time
 
     def step(self) -> S:
         action = self.agent.act()
@@ -61,3 +64,17 @@ class AgentEnvironment(Generic[S, A]):
         if self.environment.is_terminal():
             return None
         return new_state
+
+    def loop(self):
+        initial_state = self.environment.state
+        while True:
+            self.environment.state = self.agent.state =  initial_state
+            elapsed_steps = 0
+            while True:
+                if self.environment.is_terminal() or elapsed_steps > self.step_limit:
+                    break
+                self.step()
+                elapsed_steps += 1
+                if self.sleep_time:
+                    time.sleep(self.sleep_time)
+

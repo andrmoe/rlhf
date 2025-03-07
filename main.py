@@ -1,4 +1,3 @@
-import time
 
 import numpy as np
 import torch
@@ -30,21 +29,6 @@ def manual_control(state: tuple[int, int]) -> tuple[tuple[float, int]]:
             return ((1.0, south),)
 
 
-def agent_loop(agent_environment: AgentEnvironment[tuple[int, int], int]):
-    elapsed_steps = 0
-    while True:
-        if agent_environment.environment.is_terminal() or elapsed_steps > 200:
-            elapsed_steps = 0
-            while True:
-                agent_environment.environment.state = random.randint(0, 9), random.randint(0, 9)
-                if small_maze.world_data[agent_environment.environment.state] != small_maze.obstacle:
-                    break
-
-        agent_environment.step()
-        elapsed_steps += 1
-        #time.sleep(0.01)
-
-
 def reward_func(world: GridWorld, state: tuple[int, int]) -> float:
     if world.world_data[state] == world.terminal_square:
         return 10
@@ -53,10 +37,10 @@ def reward_func(world: GridWorld, state: tuple[int, int]) -> float:
 
 
 if __name__ == '__main__':
-    world = open_world
+    world = small_maze
     agent = QLearningAgent(small_maze.state, range(4))
     reward_model = GridWorldRewardModel(world.world_data.shape, 10)
-    agent_environment = AgentEnvironment(agent, world, lambda s: float(reward_model.reward(s)[0]))
-    t = threading.Thread(target=agent_loop, args=[agent_environment], daemon=True)
+    agent_environment = AgentEnvironment(agent, world, lambda s: reward_func(world, s), sleep_time=0.01)
+    t = threading.Thread(target=agent_environment.loop, args=[], daemon=True)
     t.start()
     visualise_gridworld(agent_environment)
