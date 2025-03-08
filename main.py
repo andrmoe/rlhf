@@ -9,6 +9,7 @@ from qlearning import QLearningAgent
 from visual import visualise_gridworld
 from reward_model import GridWorldRewardModel
 import threading
+from rlhf import rlhf
 
 
 def manual_control(state: tuple[int, int]) -> tuple[tuple[float, int]]:
@@ -40,7 +41,8 @@ if __name__ == '__main__':
     world = small_maze
     agent = QLearningAgent(small_maze.state, range(4))
     reward_model = GridWorldRewardModel(world.world_data.shape, 10)
-    agent_environment = AgentEnvironment(agent, world, lambda s: reward_func(world, s), sleep_time=0.01)
-    t = threading.Thread(target=agent_environment.loop, args=[], daemon=True)
-    t.start()
-    visualise_gridworld(agent_environment)
+    # agent_environment = AgentEnvironment(agent, world, lambda s: reward_func(world, s), sleep_time=0.01)
+    # t = threading.Thread(target=agent_environment.loop, args=[], daemon=True)
+    # t.start()
+    # visualise_gridworld(agent_environment)
+    rlhf(agent, world, reward_model, lambda _1, _2: torch.tensor([0.5, 0.5]))

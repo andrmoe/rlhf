@@ -1,7 +1,9 @@
+import time
 from typing import TypeVar, Generic, Callable
 import numpy as np
 import torch
 from torch import tensor, Tensor, nn
+import multiprocessing
 
 S = TypeVar('S')
 
@@ -39,6 +41,22 @@ class RewardTable(nn.Module):
     def forward(self, indices: Tensor) -> Tensor:
         return self.table[indices[0], indices[1]]
 
+
+def train(preference_pipe: multiprocessing.Pipe,
+          model_weights_pipe: multiprocessing.Pipe):
+    # TODO: Implement training
+    preference_pipe[0].close()
+    model_weights_pipe[1].close()
+    steps = 0
+    while True:
+        if steps % 100 == 0:
+            print('Sending updated model weights')
+            model_weights_pipe[0].send(f"Updated model weights {steps}")
+        if preference_pipe[1].poll(0):
+            new_preference_data = preference_pipe[1].recv()
+            print(f"Reward model received new training data ({new_preference_data})")
+        time.sleep(0.01)
+        steps += 1
 
 class GridWorldRewardModel(RewardModel[tuple[int, int]]):
     def __init__(self, shape: tuple[int, int], ensemble_size: int):
