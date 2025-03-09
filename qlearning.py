@@ -11,7 +11,7 @@ A = TypeVar("A")  # Type for actions
 class QLearningAgent(Agent[S, A]):
     def __init__(self, state: S, possible_actions=Iterable[A], discount_factor: float = 0.9, learning_rate: float = 0.1,
                 exploration_rate: float = 0.01):
-        super().__init__(state, self.q_policy)
+        super().__init__(state)
         # The tensors here are probabilities of taking an action from self.possible_actions
         self.possible_actions = tuple(possible_actions)
         self.q_table: dict[S, Tensor] = {state: torch.zeros(len(self.possible_actions))}
@@ -19,7 +19,7 @@ class QLearningAgent(Agent[S, A]):
         self.learning_rate = learning_rate
         self.exploration_rate = exploration_rate
 
-    def q_policy(self, state: S) -> Iterable[tuple[float, A]]:
+    def policy(self, state: S) -> Iterable[tuple[float, A]]:
         max_value = torch.max(self.q_table[state])
         max_one_hot = (self.q_table[state] == max_value).int()
         max_value_count = torch.sum(max_one_hot)

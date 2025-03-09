@@ -9,10 +9,12 @@ S = TypeVar('S')
 
 
 class RewardModel(Generic[S], nn.Module):
-    def __init__(self, ensemble: [nn.Module], encode: Callable[[S], Tensor]):
+    def __init__(self, ensemble: [nn.Module]):
         super().__init__()
         self.ensemble = nn.ModuleList(ensemble)
-        self.encode = encode
+
+    def encode(self, state: S) -> Tensor:
+        pass
 
     def encode_trajectory(self, trajectory: [S]) -> Tensor:
         return torch.stack([self.encode(state) for state in trajectory])
@@ -60,4 +62,7 @@ def train(preference_pipe: multiprocessing.Pipe,
 
 class GridWorldRewardModel(RewardModel[tuple[int, int]]):
     def __init__(self, shape: tuple[int, int], ensemble_size: int):
-        super().__init__([RewardTable(shape) for _ in range(ensemble_size)], lambda s: tensor(s, dtype=torch.long))
+        super().__init__([RewardTable(shape) for _ in range(ensemble_size)])
+
+    def encode(self, s: S) -> Tensor:
+        return tensor(s, dtype=torch.long)

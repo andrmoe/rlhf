@@ -37,12 +37,22 @@ def reward_func(world: GridWorld, state: tuple[int, int]) -> float:
         return -1
 
 
-if __name__ == '__main__':
+def q_learning_demo():
+    world = small_maze
+    agent = QLearningAgent(small_maze.state, range(4))
+    agent_environment = AgentEnvironment(agent, world, lambda s: reward_func(world, s), sleep_time=0.01)
+    t = threading.Thread(target=agent_environment.loop, args=[], daemon=True)
+    t.start()
+    visualise_gridworld(agent_environment)
+
+
+def rlhf_demo():
     world = small_maze
     agent = QLearningAgent(small_maze.state, range(4))
     reward_model = GridWorldRewardModel(world.world_data.shape, 10)
-    # agent_environment = AgentEnvironment(agent, world, lambda s: reward_func(world, s), sleep_time=0.01)
-    # t = threading.Thread(target=agent_environment.loop, args=[], daemon=True)
-    # t.start()
-    # visualise_gridworld(agent_environment)
-    rlhf(agent, world, reward_model, lambda _1, _2: torch.tensor([0.5, 0.5]))
+    rlhf(agent, world, reward_model, lambda t1, t2: torch.tensor([0.5, 0.5]))
+
+
+if __name__ == '__main__':
+    #q_learning_demo()
+    rlhf_demo()

@@ -10,26 +10,26 @@ from copy import deepcopy
 S = TypeVar("S")  # Type for states
 A = TypeVar("A")  # Type for actions
 
+def run_rlhf_agent_env(agent: Agent[S, A], environment: Environment[S, A], reward_model: RewardModel[S],
+                       req_human_feedback_pipe: multiprocessing.Pipe, model_weights_pipe: multiprocessing.Pipe):
+    agent_environment = RlhfAgentEnvironment(agent, environment, reward_model)
+    initial_state = agent_environment.environment.state
+    while True:
+        agent_environment.environment.state = agent_environment.agent.state = initial_state
+        elapsed_steps = 0
+        while True:
+            if agent_environment.environment.is_terminal() or elapsed_steps > agent_environment.step_limit:
+                break
+            agent_environment.step()
+            elapsed_steps += 1
+            if agent_environment.sleep_time:
+                time.sleep(agent_environment.sleep_time)
+
+
 class RlhfAgentEnvironment(AgentEnvironment[S, A]):
     def __init__(self, agent: Agent[S, A], environment: Environment[S, A], reward_model: RewardModel[S]):
-        super().__init__(agent, environment, lambda s: float(self.reward_model.reward(s)[0]))
-        self.reward_model = reward_model
+        super().__init__(agent, environment, lambda s: float(reward_model.reward(s)[0]))
 
-
-    def rlhf_loop(self, req_human_feedback_pipe: multiprocessing.Pipe, model_weights_pipe: multiprocessing.Pipe):
-        initial_state = self.environment.state
-        agent_environment = AgentEnvironment(self.agent, self.environment,
-                                             lambda s: float(self.reward_model.reward(s)[0]))
-        while True:
-            agent_environment.environment.state = agent_environment.agent.state = initial_state
-            elapsed_steps = 0
-            while True:
-                if agent_environment.environment.is_terminal() or elapsed_steps > agent_environment.step_limit:
-                    break
-                agent_environment.step()
-                elapsed_steps += 1
-                if agent_environment.sleep_time:
-                    time.sleep(agent_environment.sleep_time)
 
 def pretend_rl(req_human_feedback_pipe: multiprocessing.Pipe,
                model_weights_pipe: multiprocessing.Pipe):
@@ -50,14 +50,16 @@ def pretend_rl(req_human_feedback_pipe: multiprocessing.Pipe,
 
 def rlhf(agent: Agent[S, A], environment: Environment[S, A], reward_model: RewardModel[S],
          preference_oracle: Callable[[Iterable[S], Iterable[S]], Tensor]):
-    # agent_environment = AgentEnvironment(agent, environment, lambda s: float(reward_model.reward(s)[0]))
     rlhf_agent_env = RlhfAgentEnvironment(agent, environment, deepcopy(reward_model))
     preference_database = []
     req_human_feedback_pipe = multiprocessing.Pipe()
     model_weights_pipe = multiprocessing.Pipe()
     preference_pipe = multiprocessing.Pipe()
 
-    rl_process = multiprocessing.Process(target=rlhf_agent_env.rlhf_loop, args=(req_human_feedback_pipe, model_weights_pipe),
+    rl_process = multiprocessing.Process(target=run_rlhf_agent_env, args=(agent, environment,
+                                                                                deepcopy(reward_model),
+                                                                                req_human_feedback_pipe,
+                                                                                model_weights_pipe),
                                          daemon=True)
     reward_process = multiprocessing.Process(target=train, args=(preference_pipe, model_weights_pipe),
                                              daemon=True)

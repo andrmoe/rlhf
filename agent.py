@@ -3,17 +3,17 @@ from typing import Callable, TypeVar, Iterable, Generic
 import random
 import warnings
 
-from sympy.abc import lamda
-
 S = TypeVar("S")  # Type for states
 A = TypeVar("A")  # Type for actions
 
 
 class Agent(Generic[S, A]):
-    def __init__(self, state: S, policy: Callable[[S], Iterable[tuple[float, A]]]):
+    def __init__(self, state: S):
         self.state = state
-        self.policy = policy
         self.most_recent_action = None
+
+    def policy(self, state: S) -> Iterable[tuple[float, A]]:
+        pass
 
     def act(self) -> A:
         action_distribution = self.policy(self.state)
@@ -31,9 +31,11 @@ class Agent(Generic[S, A]):
         self.state = new_state
 
 class Environment(Generic[S, A]):
-    def __init__(self, state: S, transition_func: Callable[[S, A], S] = lambda s, a: s):
+    def __init__(self, state: S):
         self.state = state
-        self.transition_func = transition_func
+
+    def transition_func(self, state: S, action: A) -> S:
+        pass
 
     def transition(self, action: A) -> S:
         self.state = self.transition_func(self.state, action)
