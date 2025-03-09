@@ -1,3 +1,4 @@
+import time
 
 import numpy as np
 import torch
@@ -46,13 +47,24 @@ def q_learning_demo():
     visualise_gridworld(agent_environment)
 
 
+def euclidean_preference_oracle(t1: [tuple[int, int]], t2: [tuple[int, int]]) -> torch.Tensor:
+    target = (0, 0)
+    sq_dist1 = sum([(x-target[0])**2 + (y-target[1])**2 for x, y in t1])
+    sq_dist2 = sum([(x-target[0])**2 + (y-target[1])**2 for x, y in t2])
+    if sq_dist1 == sq_dist2:
+        return torch.tensor([0.5,0.5])
+    elif sq_dist1 > sq_dist2:
+        return torch.tensor([1,0])
+    elif sq_dist1 < sq_dist2:
+        return torch.tensor([0,1])
+
 def rlhf_demo():
     world = small_maze
     agent = QLearningAgent(small_maze.state, range(4))
     reward_model = GridWorldRewardModel(world.world_data.shape, 10)
-    rlhf(agent, world, reward_model, lambda t1, t2: torch.tensor([0.5, 0.5]))
+    rlhf(agent, world, reward_model, euclidean_preference_oracle)
 
 
 if __name__ == '__main__':
-    #q_learning_demo()
-    rlhf_demo()
+    q_learning_demo()
+    #rlhf_demo()

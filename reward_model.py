@@ -22,7 +22,13 @@ class RewardModel(Generic[S], nn.Module):
     def reward(self, state: S) -> Tensor:
         encoded = self.encode(state)
         rewards = torch.stack([reward_model(encoded) for reward_model in self.ensemble])
-        return torch.stack((torch.mean(rewards), torch.var(rewards)))
+        return torch.mean(rewards)
+
+    def trajectory_variance(self, trajectory: [S]) -> float:
+        trajectory_rewards = [torch.tensor([reward_model(self.encode(state)) for reward_model in self.ensemble])
+                              for state in trajectory]
+        variances = torch.tensor([torch.var(episode_rewards) for episode_rewards in trajectory_rewards])
+        return float(torch.sum(variances))
 
     def exp_sum(self, trajectory: Tensor) -> Tensor:
         rewards = tensor([[predictor(state) for state in trajectory] for predictor in self.ensemble])
@@ -46,14 +52,15 @@ class RewardTable(nn.Module):
 
 def train(preference_pipe: multiprocessing.Pipe,
           model_weights_pipe: multiprocessing.Pipe):
+    preference_database = []
     # TODO: Implement training
     preference_pipe[0].close()
     model_weights_pipe[1].close()
     steps = 0
     while True:
-        if steps % 100 == 0:
+        if False:
             print('Sending updated model weights')
-            model_weights_pipe[0].send(f"Updated model weights {steps}")
+            model_weights_pipe[0].send({})
         if preference_pipe[1].poll(0):
             new_preference_data = preference_pipe[1].recv()
             print(f"Reward model received new training data ({new_preference_data})")
