@@ -7,7 +7,7 @@ from maze import small_maze, open_world
 from gridworld import GridWorld
 from agent import AgentEnvironment, Agent, Environment
 from qlearning import QLearningAgent
-from visual import visualise_gridworld
+import visual
 from reward_model import GridWorldRewardModel
 import threading
 from rlhf import rlhf
@@ -44,7 +44,11 @@ def q_learning_demo():
     agent_environment = AgentEnvironment(agent, world, lambda s: reward_func(world, s), sleep_time=0.01)
     t = threading.Thread(target=agent_environment.loop, args=[], daemon=True)
     t.start()
-    visualise_gridworld(agent_environment)
+    visual.visualise_gridworld([lambda: visual.agent_in_gridworld(world),
+                                lambda: visual.q_values_in_matrix(world, agent),
+                                lambda: visual.rewards_in_matrix(agent_environment)],
+                               ["World", "Expected Future Returns (Q)", "Reward Function"],
+                               [(-1, 3), (-3, 10), (-1, 10)])
 
 
 def euclidean_preference_oracle(t1: [tuple[int, int]], t2: [tuple[int, int]]) -> torch.Tensor:
