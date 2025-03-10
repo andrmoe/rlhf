@@ -11,7 +11,7 @@ import visual
 from reward_model import GridWorldRewardModel
 import threading
 from rlhf import rlhf
-
+from gui import Gui
 
 def manual_control(state: tuple[int, int]) -> tuple[tuple[float, int]]:
     east = 0
@@ -66,9 +66,10 @@ def rlhf_demo():
     world = small_maze
     agent = QLearningAgent(small_maze.state, range(4))
     reward_model = GridWorldRewardModel(world.world_data.shape, 10)
-    rlhf(agent, world, reward_model, euclidean_preference_oracle)
+    gui = Gui(world, 3)
+    rlhf(agent, world, reward_model, gui, 3)
 
 
 if __name__ == '__main__':
-    q_learning_demo()
-    #rlhf_demo()
+    #q_learning_demo()
+    rlhf_demo()

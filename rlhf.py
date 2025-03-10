@@ -2,7 +2,8 @@ import time
 
 from agent import Agent, Environment, AgentEnvironment
 from reward_model import RewardModel, train
-from typing import Callable, TypeVar, Iterable
+from preference_oracle import PreferenceOracle
+from typing import Callable, TypeVar, Iterable, Generic
 from torch import Tensor
 import multiprocessing
 from copy import deepcopy
@@ -12,10 +13,10 @@ S = TypeVar("S")  # Type for states
 A = TypeVar("A")  # Type for actions
 
 def run_rlhf_agent_env(agent: Agent[S, A], environment: Environment[S, A], reward_model: RewardModel[S],
-                       req_human_feedback_pipe: multiprocessing.Pipe, model_weights_pipe: multiprocessing.Pipe):
+                       trajectory_length: int, req_human_feedback_pipe: multiprocessing.Pipe,
+                       model_weights_pipe: multiprocessing.Pipe):
     initial_state = environment.state
     step_limit = 200
-    trajectory_length = 3
     feedback_probability = 0.01
     trajectories: [[S]] = []
     req_human_feedback_pipe[1].close()
@@ -49,31 +50,31 @@ def run_rlhf_agent_env(agent: Agent[S, A], environment: Environment[S, A], rewar
 
 
 def rlhf(agent: Agent[S, A], environment: Environment[S, A], reward_model: RewardModel[S],
-         preference_oracle: Callable[[Iterable[S], Iterable[S]], Tensor]):
+         preference_oracle: PreferenceOracle[S], trajectory_length: int):
     req_human_feedback_pipe = multiprocessing.Pipe()
     model_weights_pipe = multiprocessing.Pipe()
     preference_pipe = multiprocessing.Pipe()
 
     rl_process = multiprocessing.Process(target=run_rlhf_agent_env, daemon=True,
-                                         args=(agent, environment, deepcopy(reward_model), req_human_feedback_pipe,
-                                               model_weights_pipe))
+                                         args=(agent, environment, deepcopy(reward_model), trajectory_length,
+                                               req_human_feedback_pipe, model_weights_pipe))
     reward_process = multiprocessing.Process(target=train, daemon=True, args=(preference_pipe, model_weights_pipe))
     rl_process.start()
     reward_process.start()
-    while True:
-        preference_pipe[1].close()
-        req_human_feedback_pipe[0].close()
-        steps = 0
-        current_pair = None
-        while True:
-            if current_pair:
-                time.sleep(5)
-                preference = preference_oracle(*current_pair)
-                feedback_triple = (current_pair[0], current_pair[1], preference)
-                print(f'Sending human preference: {feedback_triple}')
-                preference_pipe[0].send(feedback_triple)
-                current_pair = None
-            if req_human_feedback_pipe[1].poll(0):
-                current_pair = req_human_feedback_pipe[1].recv()
-                print(f"Received traj pair ({current_pair})")
-            steps += 1
+
+    def preference_callback(traj0: [S], traj1: [S], preference: Tensor):
+        feedback_triple = (traj0, traj1, preference)
+        print(f'Sending human preference: {feedback_triple}')
+        preference_pipe[0].send(feedback_triple)
+
+    def next_pair_callback() -> tuple[[S], [S]]:
+        if req_human_feedback_pipe[1].poll(20):
+            pair = req_human_feedback_pipe[1].recv()
+            print(f"Received traj pair ({pair})")
+            return pair
+
+
+    preference_oracle.register_callbacks(preference_callback, next_pair_callback)
+    preference_pipe[1].close()
+    req_human_feedback_pipe[0].close()
+    preference_oracle.start()
