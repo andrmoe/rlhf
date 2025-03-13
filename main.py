@@ -66,8 +66,9 @@ def rlhf_demo():
     world = small_maze
     agent = QLearningAgent(small_maze.state, range(4))
     reward_model = GridWorldRewardModel(world.world_data.shape, 10)
-    gui = Gui(world, 3)
-    rlhf(agent, world, reward_model, gui, 3)
+    trajectory_length = 10
+    gui = Gui(world, trajectory_length)
+    rlhf(agent, world, reward_model, gui, trajectory_length)
 
 
 if __name__ == '__main__':

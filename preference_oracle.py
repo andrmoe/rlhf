@@ -1,4 +1,4 @@
-from typing import TypeVar, Generic, Callable
+from typing import TypeVar, Generic, Callable, Any
 from torch import Tensor
 
 
@@ -12,7 +12,7 @@ class PreferenceOracle(Generic[S]):
         self.next_pair_callback = None
 
     def register_callbacks(self, preference_callback: Callable[[[S], [S], Tensor], None],
-                           next_pair_callback: Callable[[], tuple[[S], [S]]]):
+                           next_pair_callback: Callable[[], tuple[[S], [S], Any]]):
         self.preference_callback = preference_callback
         self.next_pair_callback = next_pair_callback
 
