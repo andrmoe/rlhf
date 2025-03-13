@@ -1,8 +1,9 @@
 import time
-from typing import TypeVar, Generic, Callable
+from typing import TypeVar, Generic
 import numpy as np
 import torch
 from torch import tensor, Tensor, nn
+from torch.utils.data import DataLoader, Dataset
 import multiprocessing
 
 S = TypeVar('S')
@@ -21,7 +22,10 @@ class RewardModel(Generic[S], nn.Module):
 
     def reward(self, state: S) -> Tensor:
         encoded = self.encode(state)
-        rewards = torch.stack([reward_model(encoded) for reward_model in self.ensemble])
+        return self(encoded)
+
+    def forward(self, encoded_traj) -> Tensor:
+        rewards = torch.stack([reward_model(encoded_traj) for reward_model in self.ensemble])
         return torch.mean(rewards)
 
     def trajectory_variance(self, trajectory: [S]) -> float:
@@ -31,15 +35,19 @@ class RewardModel(Generic[S], nn.Module):
         return float(torch.sum(variances))
 
     def exp_sum(self, trajectory: Tensor) -> Tensor:
-        rewards = tensor([[predictor(state) for state in trajectory] for predictor in self.ensemble])
-        return torch.exp(torch.sum(rewards, dim=1))
+        reward_sum = 0
+        for predictor in self.ensemble:
+            for state in trajectory:
+                reward_sum = reward_sum + predictor(state)
+
+        return torch.exp(reward_sum)
 
 
     def loss(self, traj0: Tensor, traj1: Tensor, preference: Tensor) -> Tensor:
-        exp_sum0 = self.exp_sum(traj0)
-        exp_sum1 = self.exp_sum(traj1)
+        exp_sum0 = self.exp_sum(traj0[0])
+        exp_sum1 = self.exp_sum(traj1[0])
         denominator = exp_sum0 + exp_sum1
-        return - torch.mean(preference[0]*torch.log(exp_sum0/denominator) + preference[1]*np.log(exp_sum1/denominator))
+        return - torch.mean(preference[0][0]*torch.log(exp_sum0/denominator) + preference[0][1]*torch.log(exp_sum1/denominator))
 
 class RewardTable(nn.Module):
     def __init__(self, shape: tuple[int, int]):
@@ -47,25 +55,50 @@ class RewardTable(nn.Module):
         self.table = nn.Parameter(torch.randn(shape))
 
     def forward(self, indices: Tensor) -> Tensor:
-        return self.table[indices[0], indices[1]]
+        entry = self.table[indices[0], indices[1]]
+        return entry
 
 
-def train(preference_pipe: multiprocessing.Pipe,
-          model_weights_pipe: multiprocessing.Pipe):
-    preference_database = []
-    # TODO: Implement training
+class PreferenceDataset(Dataset):
+    def __init__(self):
+        self.data_list = []
+
+    def __len__(self):
+        return len(self.data_list)
+
+    def __getitem__(self, idx) -> tuple[Tensor, Tensor, Tensor]:
+        return self.data_list[idx]
+
+
+def train(model: RewardModel[S], preference_pipe: multiprocessing.Pipe, model_weights_pipe: multiprocessing.Pipe):
     preference_pipe[0].close()
     model_weights_pipe[1].close()
-    steps = 0
+
+    optimiser = torch.optim.Adam(model.parameters(), lr=0.1)
+    dataset = PreferenceDataset()
+    # Wait for the first feedback
+    preference_pipe[1].poll()
+    t0, t1, pref = preference_pipe[1].recv()
+    print(f"Reward model received new training data ({t0, t1, pref})")
+    dataset.data_list.append((model.encode(t0), model.encode(t1), pref))
+    data_loader = DataLoader(dataset, batch_size=1, shuffle=True)
+    model.train()
+
     while True:
-        if False:
-            print('Sending updated model weights')
-            model_weights_pipe[0].send({})
+        for batch_index, (traj0, traj1, preference) in enumerate(data_loader):
+            optimiser.zero_grad()
+            loss = model.loss(traj0, traj1, preference)
+            #print(loss)
+            loss.backward()
+            optimiser.step()
+        print('Sending updated model weights')
+        model_weights_pipe[0].send(dict(model.named_parameters()))
         if preference_pipe[1].poll(0):
-            new_preference_data = preference_pipe[1].recv()
-            print(f"Reward model received new training data ({new_preference_data})")
-        time.sleep(0.01)
-        steps += 1
+            t0, t1, pref = preference_pipe[1].recv()
+            print(f"Reward model received new training data ({t0, t1, pref})")
+            dataset.data_list.append((model.encode(t0), model.encode(t1), pref))
+            data_loader = DataLoader(dataset, batch_size=1, shuffle=True)
+        print(len(dataset))
 
 class GridWorldRewardModel(RewardModel[tuple[int, int]]):
     def __init__(self, shape: tuple[int, int], ensemble_size: int):

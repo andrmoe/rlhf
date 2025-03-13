@@ -65,8 +65,7 @@ class Gui(PreferenceOracle[tuple[int, int]]):
                 if self.model_params:
                     params = np.array([param.detach().numpy() for param in self.model_params.values()])
                     two_params = np.mean(params, axis=0), np.var(params, axis=0)
-                    model_update = [mesh.set_array(param)
-                                                             for mesh, param in zip(model_meshes, two_params)]
+                    model_update = [mesh.set_array(param) for mesh, param in zip(model_meshes, two_params)]
                 else:
                     model_update = []
                 return [mesh.set_array(self.animate_trajectory(frame, traj)) for mesh, traj in
