@@ -34,20 +34,22 @@ class RewardModel(Generic[S], nn.Module):
         variances = torch.tensor([torch.var(episode_rewards) for episode_rewards in trajectory_rewards])
         return float(torch.sum(variances))
 
-    def exp_sum(self, trajectory: Tensor) -> Tensor:
+    def exp_sum(self, trajectory: Tensor, predictor: nn.Module) -> Tensor:
         reward_sum = 0
-        for predictor in self.ensemble:
-            for state in trajectory:
-                reward_sum = reward_sum + predictor(state)
+        for state in trajectory:
+            reward_sum = reward_sum + predictor(state)
 
         return torch.exp(reward_sum)
 
 
     def loss(self, traj0: Tensor, traj1: Tensor, preference: Tensor) -> Tensor:
-        exp_sum0 = self.exp_sum(traj0[0])
-        exp_sum1 = self.exp_sum(traj1[0])
-        denominator = exp_sum0 + exp_sum1
-        return - torch.mean(preference[0][0]*torch.log(exp_sum0/denominator) + preference[0][1]*torch.log(exp_sum1/denominator))
+        loss = 0
+        for predictor in self.ensemble:
+            exp_sum0 = self.exp_sum(traj0[0], predictor)
+            exp_sum1 = self.exp_sum(traj1[0], predictor)
+            denominator = exp_sum0 + exp_sum1
+            loss = loss - torch.mean(preference[0][0]*torch.log(exp_sum0/denominator) + preference[0][1]*torch.log(exp_sum1/denominator))
+        return loss
 
 class RewardTable(nn.Module):
     def __init__(self, shape: tuple[int, int]):
@@ -74,7 +76,7 @@ def train(model: RewardModel[S], preference_pipe: multiprocessing.Pipe, model_we
     preference_pipe[0].close()
     model_weights_pipe[1].close()
 
-    optimiser = torch.optim.Adam(model.parameters(), lr=0.1)
+    optimiser = torch.optim.Adam(model.parameters(), lr=0.001)
     dataset = PreferenceDataset()
     # Wait for the first feedback
     preference_pipe[1].poll()

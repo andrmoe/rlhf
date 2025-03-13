@@ -26,7 +26,7 @@ class Gui(PreferenceOracle[tuple[int, int]]):
 
     def feedback(self, preference: torch.Tensor):
         self.preference_callback(self.trajectories[0], self.trajectories[1], preference)
-        pair_and_reward_model_params = self.next_pair_callback()
+        pair_and_reward_model_params = self.next_pair_callback(self.trajectories[0], self.trajectories[1])
         self.model_params = pair_and_reward_model_params[2]
         self.trajectories = pair_and_reward_model_params[0], pair_and_reward_model_params[1]
 
@@ -41,7 +41,7 @@ class Gui(PreferenceOracle[tuple[int, int]]):
 
     def start(self):
         while self.trajectories is None:
-            self.trajectories = self.next_pair_callback()
+            self.trajectories = self.next_pair_callback(None, None)
         fig, axes = plt.subplots(2, 2, figsize=(10, 5))
         world_meshes = [ax.pcolormesh(self.world.world_data.numpy(), vmin=-1, vmax=3) for ax in axes[1, :]]
         model_meshes = [ax.pcolormesh(np.zeros(self.world.world_data.shape), vmin=-1, vmax=3) for ax in axes[0, :]]
