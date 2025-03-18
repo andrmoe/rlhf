@@ -64,9 +64,9 @@ def euclidean_preference_oracle(t1: [tuple[int, int]], t2: [tuple[int, int]]) ->
 
 def rlhf_demo():
     world = small_maze
-    agent = QLearningAgent(small_maze.state, range(4), exploration_rate=0.3)
+    agent = QLearningAgent(small_maze.state, range(4), exploration_rate=0.3, temperature=0.5)
     reward_model = GridWorldRewardModel(world.world_data.shape, 10)
-    trajectory_length = 10
+    trajectory_length = 20
     gui = Gui(world, trajectory_length)
     rlhf(agent, world, reward_model, gui, trajectory_length)
 
