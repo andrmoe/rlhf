@@ -13,7 +13,7 @@ class PreferenceOracle(Generic[S]):
         self.next_pair_callback = None
 
     def register_callbacks(self, preference_callback: Callable[[RLHFMessage[S]], None],
-                           next_pair_callback: Callable[[], RLHFMessage[S]]):
+                           next_pair_callback: Callable[[RLHFMessage[S]], RLHFMessage[S]]):
         self.preference_callback = preference_callback
         self.next_pair_callback = next_pair_callback
 

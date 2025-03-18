@@ -26,13 +26,12 @@ class Gui(PreferenceOracle[tuple[int, int]]):
 
     def feedback(self, preference: torch.Tensor):
         rlhf_message = RLHFMessage()
-        rlhf_message.trajectory0 = self.trajectories[0]
-        rlhf_message.trajectory1 = self.trajectories[1]
+        rlhf_message.trajectories = self.trajectories
         rlhf_message.preference = preference
         self.preference_callback(rlhf_message)
         rlhf_message: RLHFMessage[tuple[int, int]] = self.next_pair_callback(rlhf_message)
         self.model_params = rlhf_message.reward_model_weights
-        self.trajectories = [rlhf_message.trajectory0, rlhf_message.trajectory1]
+        self.trajectories = rlhf_message.trajectories
 
     def left(self, _):
         self.feedback(torch.tensor([1,0]))
@@ -46,7 +45,7 @@ class Gui(PreferenceOracle[tuple[int, int]]):
     def start(self):
         while self.trajectories is None:
             rlhf_message: RLHFMessage[tuple[int, int]] = self.next_pair_callback(RLHFMessage[tuple[int, int]]())
-            self.trajectories = [rlhf_message.trajectory0, rlhf_message.trajectory1]
+            self.trajectories = rlhf_message.trajectories
         fig, axes = plt.subplots(2, 2, figsize=(10, 5))
         world_meshes = [ax.pcolormesh(self.world.world_data.numpy(), vmin=-1, vmax=3) for ax in axes[1, :]]
         model_meshes = [ax.pcolormesh(np.zeros(self.world.world_data.shape), vmin=-1, vmax=3) for ax in axes[0, :]]

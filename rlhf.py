@@ -52,13 +52,9 @@ def run_rlhf_agent_env(agent: Agent[S, A], environment: Environment[S, A], rewar
                 if next_eval_pipe[1].poll(0):
                     rlhf_message: RLHFMessage[S] = next_eval_pipe[1].recv()
                     print(rlhf_message)
-                    traj0 = rlhf_message.trajectory0
-                    traj1 = rlhf_message.trajectory1
-                    # We could add both trajectories here, but it might be better to enable comparison with an old trajectory
-                    if traj0 not in evaluated_trajectories:
-                        evaluated_trajectories.append(traj0)
-                    if traj1 not in evaluated_trajectories:
-                        evaluated_trajectories.append(traj1)
+                    for traj in rlhf_message.trajectories:
+                        if traj not in evaluated_trajectories:
+                            evaluated_trajectories.append(traj)
                     # candidates = [traj for traj in trajectories if traj not in evaluated_trajectories and traj != this_traj]
                     if len(trajectories) >= 2:
                         ps = np.array([np.exp(reward_model.trajectory_variance(t)) for t in trajectories])
@@ -71,8 +67,8 @@ def run_rlhf_agent_env(agent: Agent[S, A], environment: Environment[S, A], rewar
                         print(f'Requesting human feedback on: {first_traj}, {second_traj}')
                     else:
                         first_traj = second_traj = trajectory_length*[initial_state]
-                    rlhf_message.trajectory0 = first_traj
-                    rlhf_message.trajectory1 = second_traj
+                    rlhf_message.trajectories = [first_traj, second_traj]
+                    rlhf_message.reward_model_weights = model_weights
                     req_human_feedback_pipe[0].send(rlhf_message)
                 action = agent.act()
                 new_state = environment.transition(action)
