@@ -11,7 +11,7 @@ import multiprocessing
 from copy import deepcopy
 from random import random
 import torch
-import heapq
+from rlhf_message import RLHFMessage
 
 S = TypeVar("S")  # Type for states
 A = TypeVar("A")  # Type for actions
@@ -35,7 +35,8 @@ def run_rlhf_agent_env(agent: Agent[S, A], environment: Environment[S, A], rewar
             elapsed_steps = 0
             trajectory: [S] = [initial_state]
             if model_weights_pipe[1].poll(0):
-                model_weights = model_weights_pipe[1].recv()
+                rlhf_message: RLHFMessage[S] = model_weights_pipe[1].recv()
+                model_weights = rlhf_message.reward_model_weights
                 print('Received new model weights')
                 for param, old_param in zip(model_weights.values(), dict(reward_model.named_parameters()).values()):
                     pass
@@ -49,7 +50,10 @@ def run_rlhf_agent_env(agent: Agent[S, A], environment: Environment[S, A], rewar
                     this_traj = trajectory[:trajectory_length]
                     trajectories.append(this_traj)
                 if next_eval_pipe[1].poll(0):
-                    traj0, traj1 = next_eval_pipe[1].recv()
+                    rlhf_message: RLHFMessage[S] = next_eval_pipe[1].recv()
+                    print(rlhf_message)
+                    traj0 = rlhf_message.trajectory0
+                    traj1 = rlhf_message.trajectory1
                     # We could add both trajectories here, but it might be better to enable comparison with an old trajectory
                     if traj0 not in evaluated_trajectories:
                         evaluated_trajectories.append(traj0)
@@ -64,11 +68,12 @@ def run_rlhf_agent_env(agent: Agent[S, A], environment: Environment[S, A], rewar
                         second_traj_index = np.random.choice(list(range(len(trajectories))), p=ps)
                         first_traj = trajectories[first_traj_index]
                         second_traj = trajectories[second_traj_index]
-                        #pair = tuple(heapq.nlargest(2, trajectories, key=reward_model.trajectory_variance))
                         print(f'Requesting human feedback on: {first_traj}, {second_traj}')
                     else:
                         first_traj = second_traj = trajectory_length*[initial_state]
-                    req_human_feedback_pipe[0].send((first_traj, second_traj, model_weights))
+                    rlhf_message.trajectory0 = first_traj
+                    rlhf_message.trajectory1 = second_traj
+                    req_human_feedback_pipe[0].send(rlhf_message)
                 action = agent.act()
                 new_state = environment.transition(action)
                 reward = reward_model.reward(new_state)
@@ -91,18 +96,14 @@ def rlhf(agent: Agent[S, A], environment: Environment[S, A], reward_model: Rewar
     rl_process.start()
     reward_process.start()
 
-    def preference_callback(traj0: [S], traj1: [S], preference: Tensor):
-        feedback_triple = (traj0, traj1, preference)
-        print(f'Sending human preference: {feedback_triple}')
-        preference_pipe[0].send(feedback_triple)
+    def preference_callback(rlhf_message: RLHFMessage):
+        preference_pipe[0].send(rlhf_message)
 
-    def next_pair_callback(prev_traj0: [S], prev_traj1: [S]) \
-            -> tuple[[S], [S], dict[str, torch.nn.Parameter]]:
-        next_eval_pipe[0].send((prev_traj0, prev_traj1))
+    def next_pair_callback(rlhf_message: RLHFMessage[S]) -> RLHFMessage[S]:
+        next_eval_pipe[0].send(rlhf_message)
         req_human_feedback_pipe[1].poll()
-        pair_and_reward_model_params = req_human_feedback_pipe[1].recv()
-        print(f"Received traj pair ({pair_and_reward_model_params[0]}, {pair_and_reward_model_params[1]})")
-        return pair_and_reward_model_params
+        answer: RLHFMessage[S] = req_human_feedback_pipe[1].recv()
+        return answer
 
 
     preference_oracle.register_callbacks(preference_callback, next_pair_callback)

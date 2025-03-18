@@ -7,7 +7,7 @@ from preference_oracle import PreferenceOracle
 from visual import agent_in_gridworld
 from gridworld import GridWorld
 from copy import deepcopy
-
+from rlhf_message import RLHFMessage
 
 class Gui(PreferenceOracle[tuple[int, int]]):
     def __init__(self, world: GridWorld, trajectory_length: int):
@@ -25,10 +25,14 @@ class Gui(PreferenceOracle[tuple[int, int]]):
             return self.world.world_data.numpy()
 
     def feedback(self, preference: torch.Tensor):
-        self.preference_callback(self.trajectories[0], self.trajectories[1], preference)
-        pair_and_reward_model_params = self.next_pair_callback(self.trajectories[0], self.trajectories[1])
-        self.model_params = pair_and_reward_model_params[2]
-        self.trajectories = pair_and_reward_model_params[0], pair_and_reward_model_params[1]
+        rlhf_message = RLHFMessage()
+        rlhf_message.trajectory0 = self.trajectories[0]
+        rlhf_message.trajectory1 = self.trajectories[1]
+        rlhf_message.preference = preference
+        self.preference_callback(rlhf_message)
+        rlhf_message: RLHFMessage[tuple[int, int]] = self.next_pair_callback(rlhf_message)
+        self.model_params = rlhf_message.reward_model_weights
+        self.trajectories = [rlhf_message.trajectory0, rlhf_message.trajectory1]
 
     def left(self, _):
         self.feedback(torch.tensor([1,0]))
@@ -41,7 +45,8 @@ class Gui(PreferenceOracle[tuple[int, int]]):
 
     def start(self):
         while self.trajectories is None:
-            self.trajectories = self.next_pair_callback(None, None)
+            rlhf_message: RLHFMessage[tuple[int, int]] = self.next_pair_callback(RLHFMessage[tuple[int, int]]())
+            self.trajectories = [rlhf_message.trajectory0, rlhf_message.trajectory1]
         fig, axes = plt.subplots(2, 2, figsize=(10, 5))
         world_meshes = [ax.pcolormesh(self.world.world_data.numpy(), vmin=-1, vmax=3) for ax in axes[1, :]]
         model_meshes = [ax.pcolormesh(np.zeros(self.world.world_data.shape), vmin=-1, vmax=3) for ax in axes[0, :]]

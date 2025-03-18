@@ -5,6 +5,7 @@ import torch
 from torch import tensor, Tensor, nn
 from torch.utils.data import DataLoader, Dataset
 import multiprocessing
+from rlhf_message import RLHFMessage
 
 S = TypeVar('S')
 
@@ -80,11 +81,17 @@ def train(model: RewardModel[S], preference_pipe: multiprocessing.Pipe, model_we
     dataset = PreferenceDataset()
     # Wait for the first feedback
     preference_pipe[1].poll()
-    t0, t1, pref = preference_pipe[1].recv()
+    rlhf_message: RLHFMessage[S] = preference_pipe[1].recv()
+    t0 = rlhf_message.trajectory0
+    t1 = rlhf_message.trajectory1
+    pref = rlhf_message.preference
+
     print(f"Reward model received new training data ({t0, t1, pref})")
     dataset.data_list.append((model.encode(t0), model.encode(t1), pref))
     data_loader = DataLoader(dataset, batch_size=1, shuffle=True)
     model.train()
+
+    rlhf_message = RLHFMessage[S]()
 
     while True:
         for batch_index, (traj0, traj1, preference) in enumerate(data_loader):
@@ -94,11 +101,12 @@ def train(model: RewardModel[S], preference_pipe: multiprocessing.Pipe, model_we
             loss.backward()
             optimiser.step()
         print('Sending updated model weights')
-        model_weights_pipe[0].send(dict(model.named_parameters()))
+        rlhf_message.reward_model_weights = dict(model.named_parameters())
+        model_weights_pipe[0].send(rlhf_message)
         if preference_pipe[1].poll(0):
-            t0, t1, pref = preference_pipe[1].recv()
-            print(f"Reward model received new training data ({t0, t1, pref})")
-            dataset.data_list.append((model.encode(t0), model.encode(t1), pref))
+            rlhf_message: RLHFMessage[S] = preference_pipe[1].recv()
+            print(f"Reward model received new training data ({rlhf_message.trajectory0, rlhf_message.trajectory1, rlhf_message.preference})")
+            dataset.data_list.append((model.encode(rlhf_message.trajectory0), model.encode(rlhf_message.trajectory1), rlhf_message.preference))
             data_loader = DataLoader(dataset, batch_size=1, shuffle=True)
         print(len(dataset))
 
